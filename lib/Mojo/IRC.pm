@@ -139,6 +139,8 @@ sub connect {
   return $self;
 }
 
+sub connect_p { shift->_returning_p(connect => @_) }
+
 sub ctcp {
   my $self = shift;
   local $_ = join ' ', @_;
@@ -170,6 +172,8 @@ sub disconnect {
 
   $self;
 }
+
+sub disconnect_p { shift->_returning_p(disconnect => @_) }
 
 sub register_default_event_handlers {
   my $self = shift;
@@ -207,12 +211,7 @@ sub write {
   $self;
 }
 
-sub write_p {
-  my ($self, @args) = @_;
-  my $p = Mojo::Promise->new->ioloop($self->ioloop);
-  $self->write(@args, sub { length $_[1] ? $p->reject($_[1]) : $p->resolve(1) });
-  return $p;
-}
+sub write_p { shift->_returning_p(write => @_) }
 
 sub ctcp_ping {
   my ($self, $message) = @_;
@@ -344,6 +343,13 @@ CHUNK:
     $msg->{event} = lc $msg->{command};
     $self->_dispatch_message($msg);
   }
+}
+
+sub _returning_p {
+  my ($self, $method, @args) = @_;
+  my $p = Mojo::Promise->new->ioloop($self->ioloop);
+  $self->$method(@args, sub { length $_[1] ? $p->reject($_[1]) : $p->resolve(1) });
+  return $p;
 }
 
 1;
@@ -564,6 +570,14 @@ Will log in to the IRC L</server> and call C<&callback>. The
 C<&callback> will be called once connected or if connect fails. The second
 argument will be an error message or empty string on success.
 
+=head2 connect_p
+
+  $promise = $self->connect_p;
+
+Like L</"connect">, but returns a L<Mojo::Promise> instead of taking a callback.
+The promise will be resolved on success, or rejected with the error message on
+error.
+
 =head2 ctcp
 
   $str = $self->ctcp(@str);
@@ -581,6 +595,14 @@ The code above will write this message to IRC server:
   $self->disconnect(\&callback);
 
 Will disconnect form the server and run the callback once it is done.
+
+=head2 disconnect_p
+
+  $promise = $self->disconnect_p;
+
+Like L</"disconnect">, but returns a L<Mojo::Promise> instead of taking a callback.
+The promise will be resolved on success, or rejected with the error message on
+error.
 
 =head2 new
 

@@ -1,5 +1,7 @@
 Revision history for perl distribution Mojo-IRC
 
+ - Add connect_p and disconnect_p methods
+
 0.46 2020-02-16
  - Fix insecure option for Mojolicious 9.0
  - Add write_p method returning a Mojo::Promise
