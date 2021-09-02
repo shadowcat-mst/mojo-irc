@@ -131,7 +131,10 @@ sub connect {
         push @promises, $self->write_p(PASS => $self->pass) if length $self->pass;
         push @promises, $self->write_p(NICK => $self->nick);
         push @promises, $self->write_p(USER => $self->user, 8, '*', ':' . $self->name);
-        Mojo::Promise->all(@promises)->finally(sub { $self->$cb('') });
+        Mojo::Promise->all(@promises)->finally(sub {
+          $self->emit('connected');
+          $self->$cb('')
+        });
       });
     }
   );
@@ -422,6 +425,15 @@ L<MOJO_IRC_OFFLINE> (from v0.20) is now DEPRECATED in favor of
 L<Test::Mojo::IRC>.
 
 =head1 EVENTS
+
+=head2 connected
+
+  $self->on(connected => sub { my ($self) = @_; });
+
+Emitted once a connection has been made to the user and
+C<NICK>/C<USER>/C<PASS> commands have been emitted as applicable, immediately
+before a callback passed to L</connect> is fired or a promise returned from
+L</connect_p> is completed.
 
 =head2 close
 

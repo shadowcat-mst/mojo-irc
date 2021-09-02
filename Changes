@@ -1,5 +1,6 @@
 Revision history for perl distribution Mojo-IRC
 
+ - Add connected event
  - Add connect_p and disconnect_p methods
 
 0.46 2020-02-16
