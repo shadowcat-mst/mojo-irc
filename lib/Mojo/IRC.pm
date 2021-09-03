@@ -31,6 +31,7 @@ has nick            => sub { shift->_build_nick };
 has parser          => sub { Parse::IRC->new; };
 has pass            => '';
 has real_host       => '';
+has status          => 'disconnected';
 
 has server_settings => sub {
   return {chantypes => '#', prefix => '(ov)@+'};
@@ -91,6 +92,8 @@ sub connect {
   $self->{debug_key} ||= "$host:$port";
   $self->register_default_event_handlers;
 
+  $self->_set_status('connecting');
+
   Scalar::Util::weaken($self);
   $self->{stream_id} = $self->ioloop->client(
     address => $host,
@@ -113,7 +116,7 @@ sub connect {
           delete $self->{stream};
           delete $self->{stream_id};
           $self->emit('close');
-          $self->emit('disconnected');
+          $self->_set_status('disconnected');
         }
       );
       $stream->on(
@@ -122,7 +125,7 @@ sub connect {
           $self->ioloop or return;
           $self->ioloop->remove(delete $self->{stream_id});
           $self->emit(error => $_[1]);
-          $self->emit(disconnected => $_[1]);
+          $self->_set_status(disconnected => $_[1]);
         }
       );
       $stream->on(read => sub { $self->_read($_[1]) });
@@ -134,7 +137,7 @@ sub connect {
         push @promises, $self->write_p(NICK => $self->nick);
         push @promises, $self->write_p(USER => $self->user, 8, '*', ':' . $self->name);
         Mojo::Promise->all(@promises)->finally(sub {
-          $self->emit('connected');
+          $self->_set_status('connected');
           $self->$cb('')
         });
       });
@@ -162,6 +165,7 @@ sub disconnect {
   }
 
   if ($self->{stream}) {
+    $self->_set_status('disconnecting');
     Scalar::Util::weaken($self);
     $self->{stream}->write(
       "QUIT\r\n",
@@ -357,6 +361,11 @@ sub _returning_p {
   return $p;
 }
 
+sub _set_status {
+  my ($self, $status, @arg) = @_;
+  $self->status($status)->emit(status => $status)->emit($status => @arg);
+}
+
 1;
 
 =encoding utf8
@@ -437,6 +446,12 @@ C<NICK>/C<USER>/C<PASS> commands have been emitted as applicable, immediately
 before a callback passed to L</connect> is fired or a promise returned from
 L</connect_p> is completed.
 
+=head2 connecting
+
+  $self->on(connecting => sub { my ($self) = @_; });
+
+Emitted when the client starts to connect to the server.
+
 =head2 close
 
   $self->on(close => sub { my ($self) = @_; });
@@ -449,6 +464,19 @@ Emitted once the connection to the server closes.
 
 Emitted on normal or abnormal disconnect - if triggered by an error, the error
 will be passed, if not the second argument will be empty.
+
+=head2 disconnecting
+
+  $self->on(disconnecting => sub { my ($self) = @_; });
+
+Emitted when the client starts to disconnect from the server.
+
+=head2 status
+
+  $self->on(status => sub { my ($self, $status) = @_; });
+
+Emitted on change of status of the object, C<$status> will be one of
+C<disconnected>, C<connecting>, C<connected> or C<disconnecting>.
 
 =head2 error
 
@@ -555,6 +583,13 @@ example data structure.
 
 Note that this attribute is EXPERIMENTAL and the structure of the values it
 holds.
+
+=head2 status
+
+  $status = $self->status;
+
+Current status of the object, one of C<disconnected>, C<connecting>,
+C<connected> or C<disconnecting>.
 
 =head2 user
 
