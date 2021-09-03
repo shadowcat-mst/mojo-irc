@@ -113,6 +113,7 @@ sub connect {
           delete $self->{stream};
           delete $self->{stream_id};
           $self->emit('close');
+          $self->emit('disconnected');
         }
       );
       $stream->on(
@@ -121,6 +122,7 @@ sub connect {
           $self->ioloop or return;
           $self->ioloop->remove(delete $self->{stream_id});
           $self->emit(error => $_[1]);
+          $self->emit(disconnected => $_[1]);
         }
       );
       $stream->on(read => sub { $self->_read($_[1]) });
@@ -440,6 +442,13 @@ L</connect_p> is completed.
   $self->on(close => sub { my ($self) = @_; });
 
 Emitted once the connection to the server closes.
+
+=head2 disconnected
+
+  $self->on(disconnected => sub { my ($self, $maybe_err) = @_ });
+
+Emitted on normal or abnormal disconnect - if triggered by an error, the error
+will be passed, if not the second argument will be empty.
 
 =head2 error
 
